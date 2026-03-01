@@ -37,7 +37,7 @@ import qpsolvers
 
 # Load msci country index return series
 
-path_to_data = '../data/'
+path_to_data = 'data/'
 # N = 24
 N = 10
 df = pd.read_csv(os.path.join(path_to_data, 'msci_country_indices.csv'),
@@ -318,11 +318,11 @@ np.log((1 + return_series @ weights_minv).cumprod()).plot(label='Minimum-Varianc
 
 
 # # Load msci world index return series
-# y = pd.read_csv(f'{path_to_data}NDDLWI.csv',
-#                 index_col=0,
-#                 header=0,
-#                 parse_dates=True,
-#                 date_format='%d-%m-%Y')
+y = pd.read_csv(f'{path_to_data}NDDLWI.csv',
+                 index_col=0,
+                header=0,
+                parse_dates=True,
+                date_format='%d-%m-%Y')
 
 # Create an equally weighted benchmark series
 y = return_series.mean(axis=1)

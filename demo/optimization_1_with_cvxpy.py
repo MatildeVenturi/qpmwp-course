@@ -10,7 +10,6 @@
 
 
 
-
 # Under Terminal, click on New Terminal.
 # In the Terminal window, select Command Prompt.
 # Create and activate a virtual environment, and install required packages. For that, type the following commands:
@@ -38,14 +37,13 @@ import cvxpy as cp
 
 
 
-
 # --------------------------------------------------------------------------
 # Load data
 # --------------------------------------------------------------------------
 
 # Load msci country index return series
 
-path_to_data = '../data/'
+path_to_data = 'data/'
 # N = 24
 N = 10
 df = pd.read_csv(os.path.join(path_to_data, 'msci_country_indices.csv'),
@@ -59,19 +57,16 @@ return_series = df[series_id]
 # Create 'level' series from return series
 level_series = (1 + return_series).cumprod()
 
-# # Alternatively, compute returns from level series
+# # Alternatively, compute returns from level seriesp
 # returns = level_series.pct_change(1).dropna()
 
 # Visualization
 return_series.plot()
-
 plt.figure(figsize=(10, 4))
 # level_series.plot(alpha=1, legend=True)
 np.log(level_series).plot(alpha=1, legend=True)
 plt.grid()
 plt.show()
-
-
 
 
 
@@ -107,7 +102,7 @@ mu, covmat
 # P = {x | Gx <= h, Ax = b, lb <= x <= ub}
 
 
-# Lower and upper bounds
+# Lower and upper bounds wieght
 lb = np.zeros(covmat.shape[0])
 # ub = np.repeat(0.2, N)
 ub = np.repeat(1, N)
@@ -162,7 +157,7 @@ model = cp.Problem(cp.Minimize(obj), cons_list)
 model
 
 # Solve the problem
-model.solve(solver=cp.CVXOPT, verbose=False)
+model.solve()
 
 # Extract solution and objective
 if model.status not in ["optimal", "optimal_inaccurate"]:
@@ -178,7 +173,7 @@ print("Optimal objective value:", obj_val)
 print("Solver status:", status)
 
 x_opt.plot(kind='bar')
-
+plt.show()
 
 # Dual variables (Lagrange multipliers)
 model.constraints[0].dual_value  # for first constraint
