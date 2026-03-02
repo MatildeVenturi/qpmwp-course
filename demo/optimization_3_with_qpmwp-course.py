@@ -33,7 +33,7 @@ import numpy as np
 import pandas as pd
 
 # Add the project root directory to Python path
-project_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+project_root = os.getcwd()
 src_path = os.path.join(project_root, 'src')
 sys.path.append(project_root)
 sys.path.append(src_path)
@@ -58,7 +58,7 @@ from optimization.optimization import MeanVariance
 # --------------------------------------------------------------------------
 
 N = 10
-data = load_data_msci(path = '../data/', n = N)
+data = load_data_msci(path = 'data/', n = N)
 data
 
 
