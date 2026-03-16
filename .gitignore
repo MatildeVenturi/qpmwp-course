@@ -170,3 +170,6 @@ cython_debug/
 # Data
 # Data/
 # data/*
+
+# Workspace
+*.code-workspace
