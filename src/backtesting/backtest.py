@@ -14,10 +14,15 @@
 from typing import Optional
 import pickle
 import os
+import sys
 
 # Third party imports
 import numpy as np
 import pandas as pd
+try:
+    from tqdm import tqdm
+except ImportError:  # pragma: no cover - optional notebook convenience
+    tqdm = None
 
 # Local modules imports
 from backtesting.portfolio import Portfolio
@@ -58,9 +63,27 @@ class Backtest:
             The backtest service object containing settings and optimization data.
         """
 
-        for rebalancing_date in bs.settings['rebdates']:
+        rebalancing_dates = bs.settings['rebdates']
+        show_progress = tqdm is not None and not bs.settings.get('quiet')
+        iterator = (
+            tqdm(
+                rebalancing_dates,
+                desc='Running backtest',
+                file=sys.stdout,
+                ascii=True,
+                dynamic_ncols=True,
+                leave=True,
+            )
+            if show_progress
+            else rebalancing_dates
+        )
 
-            if not bs.settings.get('quiet'):
+        for rebalancing_date in iterator:
+
+            if show_progress:
+                iterator.set_postfix_str(str(rebalancing_date))
+
+            if not bs.settings.get('quiet') and not show_progress:
                 print(f'Rebalancing date: {rebalancing_date}')
 
             # Prepare the rebalancing, i.e., the optimization problem
