@@ -192,8 +192,13 @@ class Strategy:
             to = self.turnover(return_series=return_series,
                                rescale=False)
             varcost = to * vc
-            portf_ret[0] -= varcost[0]
-            portf_ret[varcost[1:].index] -= varcost[1:].values
+            varcost.index = pd.to_datetime(varcost.index)
+            cost_series = pd.Series(0.0, index=portf_ret.index)
+            for rebalancing_date, cost in varcost.items():
+                charge_dates = cost_series.index[cost_series.index >= rebalancing_date]
+                if len(charge_dates) > 0:
+                    cost_series.loc[charge_dates[0]] += cost
+            portf_ret = portf_ret.sub(cost_series, fill_value=0)
 
         if fc != 0:
             # Calculate number of days between returns
@@ -202,6 +207,6 @@ class Strategy:
             # Subtract the daily fixed cost from the daily returns
             n_days = (portf_ret.index[1:] - portf_ret.index[:-1]).to_numpy().astype('timedelta64[D]').astype(int)
             fixcost = (1 + fc) ** (n_days / n_days_per_year) - 1
-            portf_ret[1:] -= fixcost
+            portf_ret.iloc[1:] -= fixcost
 
         return portf_ret

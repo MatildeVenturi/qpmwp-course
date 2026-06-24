@@ -200,6 +200,11 @@ class BlackLitterman(Optimization):
         tau_psi: Optional[float] = None,
         tau_omega: Optional[float] = None,
         view_gen_algo: str = 'quintile_sort',
+        tail_fraction: float = 0.20,
+        alpha_high: float = 0.0,
+        alpha_low: float = 0.0,
+        include_high_view: bool = True,
+        include_low_view: bool = True,
         use_unconditional_cov: bool = True,
         signal_names: Optional[list] = None,
         **kwargs,
@@ -209,6 +214,11 @@ class BlackLitterman(Optimization):
             tau_psi=tau_psi,
             tau_omega=tau_omega,
             view_gen_algo=view_gen_algo,
+            tail_fraction=tail_fraction,
+            alpha_high=alpha_high,
+            alpha_low=alpha_low,
+            include_high_view=include_high_view,
+            include_low_view=include_low_view,
             use_unconditional_cov=use_unconditional_cov,
             signal_names=signal_names,
             **kwargs,
@@ -227,6 +237,11 @@ class BlackLitterman(Optimization):
 
         # Extract parameters
         view_gen_algo = self.params['view_gen_algo']
+        tail_fraction = self.params.get('tail_fraction', 0.20)
+        alpha_high = self.params.get('alpha_high', 0.0)
+        alpha_low = self.params.get('alpha_low', 0.0)
+        include_high_view = self.params.get('include_high_view', True)
+        include_low_view = self.params.get('include_low_view', True)
         use_unconditional_cov = self.params['use_unconditional_cov']
         signal_names = self.params['signal_names'] or optimization_data['scores'].columns
 
@@ -261,6 +276,11 @@ class BlackLitterman(Optimization):
                 mu_ref=mu_implied,
                 method=view_gen_algo,
                 scalefactor=1,
+                tail_fraction=tail_fraction,
+                alpha_high=alpha_high,
+                alpha_low=alpha_low,
+                include_high_view=include_high_view,
+                include_low_view=include_low_view,
             )
 
         pick_mat = pd.concat(pick_mat_tmp, axis=0)

@@ -196,9 +196,10 @@ def view_from_scores_longshort_sort(
     scores: pd.Series,
     mu_ref: pd.Series,
     scalefactor: float = 1,
-) -> (pd.DataFrame, pd.Series):
+    tail_fraction: float = 0.20,
+) -> tuple[pd.DataFrame, pd.Series]:
     """
-    Generate view on a long-short portfolio based on quintile thresholds of scores.
+    Generate view on a long-short portfolio based on extreme score tails.
 
     Parameters:
     -----------
@@ -208,6 +209,8 @@ def view_from_scores_longshort_sort(
         The reference mean vector.
     scalefactor : float, optional
         A scaling factor for the expected returns (default is 1).
+    tail_fraction : float, optional
+        Fraction in each extreme score tail (default is the original 20%).
 
     Returns:
     --------
@@ -216,8 +219,14 @@ def view_from_scores_longshort_sort(
     q : pd.Series
         The expected returns for the views.
     """
-    # Compute quintile thresholds
-    lower_threshold, upper_threshold = np.percentile(scores, [20, 80])
+    if not 0 < tail_fraction < 0.5:
+        raise ValueError("tail_fraction must be strictly between 0 and 0.5.")
+
+    # Compute configurable extreme-tail thresholds
+    tail_percent = 100 * tail_fraction
+    lower_threshold, upper_threshold = np.percentile(
+        scores.dropna(), [tail_percent, 100 - tail_percent]
+    )
 
     # Identify long and short positions
     s_short = scores[scores <= lower_threshold]
@@ -235,10 +244,63 @@ def view_from_scores_longshort_sort(
 
     # Compute view portfolio expected return (q) by a long-short
     # portfolio of the best versus worst implied returns
-    mu_low, mu_high = np.percentile(mu_ref, [20, 80])
+    mu_low, mu_high = np.percentile(
+        mu_ref.dropna(), [tail_percent, 100 - tail_percent]
+    )
     mu_short = mu_ref[mu_ref <= mu_low]
     mu_long = mu_ref[mu_ref >= mu_high]
     q = pd.Series([mu_long.mean() - mu_short.mean()]) * scalefactor
+
+    return P, q
+
+
+def view_from_scores_one_sided_sort(
+    scores: pd.Series,
+    mu_ref: pd.Series,
+    scalefactor: float = 1,
+    tail_fraction: float = 0.20,
+    alpha_high: float = 0.0,
+    alpha_low: float = 0.0,
+    include_high_view: bool = True,
+    include_low_view: bool = True,
+) -> tuple[pd.DataFrame, pd.Series]:
+    """
+    Generate prior-relative one-sided views from extreme score tails.
+
+    `alpha_high` and `alpha_low` are expected-return adjustments relative to
+    each basket's prior return and must have the same frequency as `mu_ref`.
+    A negative low-score adjustment expresses an unfavourable view; final
+    holdings remain determined by the optimizer and its constraints.
+    """
+    if not 0 < tail_fraction < 0.5:
+        raise ValueError("tail_fraction must be strictly between 0 and 0.5.")
+    if not include_high_view and not include_low_view:
+        raise ValueError("At least one one-sided Black-Litterman view must be enabled.")
+
+    tail_percent = 100 * tail_fraction
+    lower_threshold, upper_threshold = np.percentile(
+        scores.dropna(), [tail_percent, 100 - tail_percent]
+    )
+
+    view_rows = []
+    view_returns = []
+
+    if include_high_view:
+        high_ids = scores[scores >= upper_threshold].index
+        high_weights = pd.Series(0.0, index=scores.index)
+        high_weights.loc[high_ids] = 1 / len(high_ids)
+        view_rows.append(high_weights)
+        view_returns.append(float(high_weights @ mu_ref) + alpha_high)
+
+    if include_low_view:
+        low_ids = scores[scores <= lower_threshold].index
+        low_weights = pd.Series(0.0, index=scores.index)
+        low_weights.loc[low_ids] = 1 / len(low_ids)
+        view_rows.append(low_weights)
+        view_returns.append(float(low_weights @ mu_ref) + alpha_low)
+
+    P = pd.DataFrame(view_rows).reset_index(drop=True)
+    q = pd.Series(view_returns) * scalefactor
 
     return P, q
 
@@ -316,6 +378,11 @@ def generate_views_from_scores(
     mu_ref: pd.Series,
     method: str = 'quintile_sort',
     scalefactor: float = 1,
+    tail_fraction: float = 0.20,
+    alpha_high: float = 0.0,
+    alpha_low: float = 0.0,
+    include_high_view: bool = True,
+    include_low_view: bool = True,
 ) -> (pd.DataFrame, pd.Series):
     """
     Generate views based on scores using the specified method.
@@ -327,10 +394,17 @@ def generate_views_from_scores(
     mu_ref : pd.Series
         The reference mean vector.
     method: str, optional
-        The method to generate views ('quintile_sort' or 'complete_sort').
-        Default is 'quintile'.
+        The method to generate views, including relative-tail
+        `longshort_sort` and prior-relative `one_sided_sort` alternatives.
+        Default is `quintile_sort`.
     scalefactor: float, optional
         A scaling factor for the expected returns (default is 1).
+    tail_fraction: float, optional
+        Tail fraction used by tail-based methods (default is 20%).
+    alpha_high, alpha_low: float, optional
+        Prior-relative adjustments used only by `one_sided_sort`.
+    include_high_view, include_low_view: bool, optional
+        Select which one-sided views are generated by `one_sided_sort`.
 
     Returns:
     --------
@@ -340,10 +414,26 @@ def generate_views_from_scores(
         The expected returns for the views.
     """
     if method == 'longshort_sort':
-        return view_from_scores_longshort_sort(scores, mu_ref, scalefactor)
+        return view_from_scores_longshort_sort(
+            scores, mu_ref, scalefactor, tail_fraction=tail_fraction
+        )
+    elif method == 'one_sided_sort':
+        return view_from_scores_one_sided_sort(
+            scores=scores,
+            mu_ref=mu_ref,
+            scalefactor=scalefactor,
+            tail_fraction=tail_fraction,
+            alpha_high=alpha_high,
+            alpha_low=alpha_low,
+            include_high_view=include_high_view,
+            include_low_view=include_low_view,
+        )
     elif method == 'quintile_sort':
         return view_from_scores_quintile_sort(scores, mu_ref, scalefactor)
     elif method == 'complete_sort':
         return view_from_scores_complete_sort(scores, mu_ref, scalefactor)
     else:
-        raise ValueError("Invalid method. Use 'longshort_sort', 'quintile_sort' or 'complete_sort'.")
+        raise ValueError(
+            "Invalid method. Use 'longshort_sort', 'one_sided_sort', "
+            "'quintile_sort' or 'complete_sort'."
+        )
